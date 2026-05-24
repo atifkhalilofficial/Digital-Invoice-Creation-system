@@ -1,64 +1,70 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import API from '../api/axios';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import API from "../api/axios";
+import Navbar from "../components/Navbar";
 
 export default function InvoiceNew() {
   const navigate = useNavigate();
 
-  const [clientName, setClientName] = useState('');
-  const [clientEmail, setClientEmail] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [tax, setTax] = useState(0);
-  const [notes, setNotes] = useState('');
-  const [error, setError] = useState('');
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // Line items — start with one empty row
   const [items, setItems] = useState([
-    { name: '', quantity: 1, unitPrice: 0, total: 0 }
+    { name: "", quantity: 1, unitPrice: 0, total: 0 },
   ]);
 
-  // Update a specific field in a specific line item row
   const handleItemChange = (index, field, value) => {
     const updated = [...items];
     updated[index][field] = value;
-
-    // Auto-calculate the row total
     const qty = parseFloat(updated[index].quantity) || 0;
     const price = parseFloat(updated[index].unitPrice) || 0;
     updated[index].total = qty * price;
-
     setItems(updated);
   };
 
-  // Add a new empty row
   const addItem = () => {
-    setItems([...items, { name: '', quantity: 1, unitPrice: 0, total: 0 }]);
+    setItems([...items, { name: "", quantity: 1, unitPrice: 0, total: 0 }]);
   };
 
-  // Remove a row (minimum 1 row always)
   const removeItem = (index) => {
     if (items.length === 1) return;
     setItems(items.filter((_, i) => i !== index));
   };
 
-  // Calculate subtotal and total
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-  const taxAmount = subtotal * (parseFloat(tax) || 0) / 100;
+  const taxAmount = (subtotal * (parseFloat(tax) || 0)) / 100;
   const total = subtotal + taxAmount;
 
-  // Submit the invoice
+  const todayFormatted = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   const handleSubmit = async (status) => {
-    setError('');
+    setError("");
+    if (!clientName) return setError("Client name is required");
+    if (!dueDate) return setError("Due date is required");
 
-    // Basic validation
-    if (!clientName) return setError('Client name is required');
-    if (!dueDate) return setError('Due date is required');
-    if (items.some(item => !item.name)) return setError('All item names are required');
+    // Check if due date is in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // remove time so today is allowed
+    const selected = new Date(dueDate);
+    if (selected < today) {
+      return setError(
+        "Due date cannot be in the past. Please select today or a future date.",
+      );
+    }
 
+    if (items.some((item) => !item.name))
+      return setError("All item names are required");
     setLoading(true);
     try {
-      await API.post('/invoices', {
+      await API.post("/invoices", {
         clientName,
         clientEmail,
         items,
@@ -67,405 +73,230 @@ export default function InvoiceNew() {
         notes,
         status,
       });
-      navigate('/invoices');
+      navigate("/invoices");
     } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong');
+      setError(err.response?.data?.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={styles.page}>
+    <div className="min-h-screen page-bg">
+      <Navbar showBack backTo="/dashboard" backLabel="Back to Dashboard" />
 
-      {/* Navbar */}
-      <nav style={styles.navbar}>
-        <h1 style={styles.navLogo}>SmartBill</h1>
-        <Link to="/" style={styles.navBack}>← Back to Dashboard</Link>
-      </nav>
+      <div className="max-w-3xl mx-auto px-6 py-8">
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-6">
+          Create New Invoice
+        </h2>
 
-      <div style={styles.container}>
-        <h2 style={styles.pageTitle}>Create New Invoice</h2>
-
-        {error && <div style={styles.error}>{error}</div>}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm px-4 py-3 rounded-lg mb-5">
+            {error}
+          </div>
+        )}
 
         {/* Client Details */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Client Details</h3>
-          <div style={styles.row}>
-            <div style={styles.field}>
-              <label style={styles.label}>Client Name *</label>
+        <div className="card p-6 mb-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">
+            Client Details
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="form-label">Client Name *</label>
               <input
-                style={styles.input}
                 type="text"
                 placeholder="Ahmed Khan"
                 value={clientName}
-                onChange={e => setClientName(e.target.value)}
+                onChange={(e) => setClientName(e.target.value)}
               />
             </div>
-            <div style={styles.field}>
-              <label style={styles.label}>Client Email</label>
+
+            <div>
+              <label className="form-label">Client Email</label>
               <input
-                style={styles.input}
                 type="email"
                 placeholder="ahmed@email.com"
                 value={clientEmail}
-                onChange={e => setClientEmail(e.target.value)}
+                onChange={(e) => setClientEmail(e.target.value)}
               />
             </div>
-          </div>
-          <div style={styles.row}>
-            <div style={styles.field}>
-              <label style={styles.label}>Due Date *</label>
+
+            <div>
+              <label className="form-label">Invoice Date</label>
+              <input type="text" value={todayFormatted} disabled />
+              <p className="text-xs text-slate-400 mt-1">Auto-set to today</p>
+            </div>
+
+            <div>
+              <label className="form-label">Due Date *</label>
               <input
-                style={styles.input}
                 type="date"
                 value={dueDate}
-                onChange={e => setDueDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={(e) => setDueDate(e.target.value)}
               />
+              <p className="text-xs text-slate-400 mt-1">
+                Must be today or a future date
+              </p>
             </div>
-            <div style={styles.field}>
-              <label style={styles.label}>Tax (%)</label>
+
+            <div>
+              <label className="form-label">Tax (%)</label>
               <input
-                style={styles.input}
                 type="number"
                 placeholder="0"
                 min="0"
                 max="100"
                 value={tax}
-                onChange={e => setTax(e.target.value)}
+                onChange={(e) => setTax(e.target.value)}
               />
             </div>
           </div>
         </div>
 
         {/* Line Items */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Line Items</h3>
+        <div className="card p-6 mb-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">
+            Line Items
+          </h3>
 
-          {/* Table Header */}
-          <div style={styles.itemHeader}>
-            <span style={{ flex: 3 }}>Item Name</span>
-            <span style={{ flex: 1, textAlign: 'center' }}>Qty</span>
-            <span style={{ flex: 1, textAlign: 'center' }}>Unit Price</span>
-            <span style={{ flex: 1, textAlign: 'right' }}>Total</span>
-            <span style={{ width: '40px' }}></span>
+          <div className="flex gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wide pb-2 border-b border-slate-200 dark:border-slate-700/60 mb-3">
+            <span className="flex-[3]">Item Name</span>
+            <span className="flex-1 text-center">Qty</span>
+            <span className="flex-1 text-center">Price</span>
+            <span className="flex-1 text-right">Total</span>
+            <span className="w-10"></span>
           </div>
 
-          {/* Item Rows */}
           {items.map((item, index) => (
-            <div key={index} style={styles.itemRow}>
+            <div key={index} className="flex gap-2 items-center mb-2">
               <input
-                style={{ ...styles.input, flex: 3 }}
+                className="flex-[3]"
                 type="text"
                 placeholder="e.g. Web Design"
                 value={item.name}
-                onChange={e => handleItemChange(index, 'name', e.target.value)}
+                onChange={(e) =>
+                  handleItemChange(index, "name", e.target.value)
+                }
               />
               <input
-                style={{ ...styles.input, flex: 1, textAlign: 'center' }}
+                className="flex-1 text-center"
                 type="number"
                 min="1"
                 value={item.quantity}
-                onChange={e => handleItemChange(index, 'quantity', e.target.value)}
+                onChange={(e) =>
+                  handleItemChange(index, "quantity", e.target.value)
+                }
               />
               <input
-                style={{ ...styles.input, flex: 1, textAlign: 'center' }}
+                className="flex-1 text-center"
                 type="number"
                 min="0"
                 placeholder="0"
                 value={item.unitPrice}
-                onChange={e => handleItemChange(index, 'unitPrice', e.target.value)}
+                onChange={(e) =>
+                  handleItemChange(index, "unitPrice", e.target.value)
+                }
               />
-              <span style={styles.itemTotal}>
+              <span className="flex-1 text-right text-sm font-semibold text-indigo-600 dark:text-indigo-400 px-1">
                 ${item.total.toFixed(2)}
               </span>
               <button
+                type="button"
                 onClick={() => removeItem(index)}
-                style={styles.removeBtn}
                 disabled={items.length === 1}
+                className="w-8 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950 text-slate-400 hover:text-red-500 text-xs transition-colors border-none cursor-pointer disabled:opacity-30"
               >
                 ✕
               </button>
             </div>
           ))}
 
-          {/* Add Row Button */}
-          <button onClick={addItem} style={styles.addItemBtn}>
+          <button
+            type="button"
+            onClick={addItem}
+            className="w-full mt-2 py-2 border border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 text-slate-400 hover:text-indigo-500 text-sm rounded-lg transition-colors bg-transparent cursor-pointer"
+          >
             + Add Item
           </button>
         </div>
 
         {/* Totals */}
-        <div style={styles.section}>
-          <div style={styles.totalsBox}>
-            <div style={styles.totalRow}>
-              <span style={styles.totalLabel}>Subtotal</span>
-              <span style={styles.totalValue}>${subtotal.toFixed(2)}</span>
+        <div className="card p-6 mb-4">
+          <div className="max-w-xs ml-auto space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500 dark:text-slate-400">
+                Subtotal
+              </span>
+              <span className="text-slate-800 dark:text-slate-200 font-medium">
+                ${subtotal.toFixed(2)}
+              </span>
             </div>
-            <div style={styles.totalRow}>
-              <span style={styles.totalLabel}>Tax ({tax || 0}%)</span>
-              <span style={styles.totalValue}>${taxAmount.toFixed(2)}</span>
+            <div className="flex justify-between text-sm pb-2 border-b border-slate-200 dark:border-slate-700/60">
+              <span className="text-slate-500 dark:text-slate-400">
+                Tax ({tax || 0}%)
+              </span>
+              <span className="text-slate-800 dark:text-slate-200 font-medium">
+                ${taxAmount.toFixed(2)}
+              </span>
             </div>
-            <div style={{ ...styles.totalRow, ...styles.grandTotalRow }}>
-              <span style={styles.grandTotalLabel}>Total</span>
-              <span style={styles.grandTotalValue}>${total.toFixed(2)}</span>
+            <div className="flex justify-between pt-1">
+              <span className="font-bold text-slate-800 dark:text-white">
+                Total
+              </span>
+              <span className="font-bold text-lg text-indigo-600 dark:text-indigo-400">
+                ${total.toFixed(2)}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Notes */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Notes</h3>
+        <div className="card p-6 mb-6">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+            Notes
+          </h3>
           <textarea
-            style={styles.textarea}
             placeholder="Payment terms, bank details, thank you message..."
             value={notes}
-            onChange={e => setNotes(e.target.value)}
+            onChange={(e) => setNotes(e.target.value)}
             rows={3}
+            className="resize-none"
           />
         </div>
 
-        {/* Action Buttons */}
-        <div style={styles.actions}>
+        {/* Actions */}
+        <div className="flex justify-end gap-3">
           <button
-            onClick={() => navigate('/')}
-            style={styles.cancelBtn}
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className="btn-outline"
           >
             Cancel
           </button>
           <button
-            onClick={() => handleSubmit('Draft')}
-            style={styles.draftBtn}
+            type="button"
+            onClick={() => handleSubmit("Draft")}
             disabled={loading}
+            className="btn-secondary"
           >
             Save as Draft
           </button>
           <button
-            onClick={() => handleSubmit('Sent')}
-            style={styles.sendBtn}
+            type="button"
+            onClick={() => handleSubmit("Sent")}
             disabled={loading}
+            className="btn-primary"
           >
-            {loading ? 'Saving...' : 'Save & Send'}
+            {loading
+              ? "Sending..."
+              : clientEmail
+                ? "Save & Send Email"
+                : "Save & Send"}
           </button>
         </div>
-
       </div>
     </div>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: '100vh',
-    backgroundColor: '#f9fafb',
-  },
-  navbar: {
-    backgroundColor: '#ffffff',
-    borderBottom: '1px solid #e5e7eb',
-    padding: '0 2rem',
-    height: '60px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  navLogo: {
-    fontSize: '20px',
-    fontWeight: '700',
-    color: '#2563eb',
-    margin: 0,
-  },
-  navBack: {
-    fontSize: '14px',
-    color: '#6b7280',
-    textDecoration: 'none',
-  },
-  container: {
-    maxWidth: '860px',
-    margin: '0 auto',
-    padding: '2rem',
-  },
-  pageTitle: {
-    fontSize: '22px',
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: '1.5rem',
-  },
-  error: {
-    backgroundColor: '#fef2f2',
-    color: '#dc2626',
-    padding: '10px 14px',
-    borderRadius: '8px',
-    fontSize: '14px',
-    marginBottom: '1rem',
-    border: '1px solid #fecaca',
-  },
-  section: {
-    backgroundColor: '#ffffff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '10px',
-    padding: '1.5rem',
-    marginBottom: '1rem',
-  },
-  sectionTitle: {
-    fontSize: '15px',
-    fontWeight: '600',
-    color: '#111827',
-    margin: '0 0 1rem',
-  },
-  row: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '1rem',
-    marginBottom: '1rem',
-  },
-  field: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  label: {
-    fontSize: '13px',
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: '6px',
-  },
-  input: {
-    padding: '9px 12px',
-    borderRadius: '8px',
-    border: '1px solid #d1d5db',
-    fontSize: '14px',
-    outline: 'none',
-    boxSizing: 'border-box',
-    width: '100%',
-  },
-  itemHeader: {
-    display: 'flex',
-    gap: '8px',
-    padding: '0 0 8px',
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#6b7280',
-    textTransform: 'uppercase',
-    borderBottom: '1px solid #e5e7eb',
-    marginBottom: '8px',
-    alignItems: 'center',
-  },
-  itemRow: {
-    display: 'flex',
-    gap: '8px',
-    marginBottom: '8px',
-    alignItems: 'center',
-  },
-  itemTotal: {
-    flex: 1,
-    textAlign: 'right',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#111827',
-    padding: '9px 4px',
-  },
-  removeBtn: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '6px',
-    border: '1px solid #e5e7eb',
-    backgroundColor: '#ffffff',
-    color: '#9ca3af',
-    cursor: 'pointer',
-    fontSize: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  addItemBtn: {
-    marginTop: '8px',
-    padding: '8px 16px',
-    backgroundColor: 'transparent',
-    border: '1px dashed #d1d5db',
-    borderRadius: '8px',
-    fontSize: '14px',
-    color: '#6b7280',
-    cursor: 'pointer',
-    width: '100%',
-  },
-  totalsBox: {
-    maxWidth: '320px',
-    marginLeft: 'auto',
-  },
-  totalRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '6px 0',
-    fontSize: '14px',
-    color: '#6b7280',
-  },
-  totalLabel: {
-    color: '#6b7280',
-  },
-  totalValue: {
-    color: '#111827',
-    fontWeight: '500',
-  },
-  grandTotalRow: {
-    borderTop: '1px solid #e5e7eb',
-    marginTop: '6px',
-    paddingTop: '10px',
-  },
-  grandTotalLabel: {
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#111827',
-  },
-  grandTotalValue: {
-    fontSize: '18px',
-    fontWeight: '700',
-    color: '#2563eb',
-  },
-  textarea: {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: '8px',
-    border: '1px solid #d1d5db',
-    fontSize: '14px',
-    outline: 'none',
-    resize: 'vertical',
-    boxSizing: 'border-box',
-    fontFamily: 'inherit',
-  },
-  actions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '10px',
-    marginTop: '1rem',
-  },
-  cancelBtn: {
-    padding: '10px 20px',
-    borderRadius: '8px',
-    border: '1px solid #e5e7eb',
-    backgroundColor: '#ffffff',
-    fontSize: '14px',
-    color: '#6b7280',
-    cursor: 'pointer',
-  },
-  draftBtn: {
-    padding: '10px 20px',
-    borderRadius: '8px',
-    border: '1px solid #d1d5db',
-    backgroundColor: '#ffffff',
-    fontSize: '14px',
-    color: '#374151',
-    fontWeight: '500',
-    cursor: 'pointer',
-  },
-  sendBtn: {
-    padding: '10px 20px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: '#2563eb',
-    fontSize: '14px',
-    color: '#ffffff',
-    fontWeight: '500',
-    cursor: 'pointer',
-  },
-};

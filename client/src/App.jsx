@@ -1,31 +1,39 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './context/authContext';
 
-// Pages 
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import InvoiceNew from './pages/InvoiceNew';
 import InvoiceList from './pages/InvoiceList';
-import Profile from './pages/Profile';
 import InvoiceDetail from './pages/InvoiceDetail';
+import Profile from './pages/Profile';
 
-// PrivateRoute — blocks pages if not logged in
+// Redirects to dashboard if logged in, login if not
 const PrivateRoute = ({ children }) => {
   const { token } = useAuth();
   return token ? children : <Navigate to="/login" />;
+};
+
+// Redirects to dashboard if already logged in
+const PublicRoute = ({ children }) => {
+  const { token } = useAuth();
+  return token ? <Navigate to="/dashboard" /> : children;
 };
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        {/* Root — redirect based on auth */}
+        <Route path="/" element={<Navigate to="/dashboard" />} />
+
+        {/* Public routes — redirect to dashboard if already logged in */}
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
         {/* Protected routes */}
-        <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+        <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/invoices/new" element={<PrivateRoute><InvoiceNew /></PrivateRoute>} />
         <Route path="/invoices" element={<PrivateRoute><InvoiceList /></PrivateRoute>} />
         <Route path="/invoices/:id" element={<PrivateRoute><InvoiceDetail /></PrivateRoute>} />

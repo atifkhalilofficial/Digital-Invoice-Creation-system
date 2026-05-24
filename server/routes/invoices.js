@@ -3,13 +3,13 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const Invoice = require('../models/Invoice');
 const User = require('../models/User');
+const { sendInvoiceEmail } = require('../utils/emailService');
 
 // ─── GET ALL INVOICES ────────────────────────────────────
-// GET /api/invoices
 router.get('/', protect, async (req, res) => {
   try {
     const invoices = await Invoice.find({ userId: req.user.id })
-      .sort({ createdAt: -1 }); // newest first
+      .sort({ createdAt: -1 });
     res.json(invoices);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -17,17 +17,14 @@ router.get('/', protect, async (req, res) => {
 });
 
 // ─── GET SINGLE INVOICE ──────────────────────────────────
-// GET /api/invoices/:id
 router.get('/:id', protect, async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id);
 
-    // Check invoice exists
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
     }
 
-    // Check it belongs to the logged in user
     if (invoice.userId.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
@@ -39,10 +36,10 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // ─── CREATE INVOICE ──────────────────────────────────────
-// POST /api/invoices
 router.post('/', protect, async (req, res) => {
   try {
-    const { clientName, clientEmail, items, tax, dueDate, notes } = req.body;
+    // ← status is now properly extracted from req.body
+    const { clientName, clientEmail, items, tax, dueDate, notes, status } = req.body;
 
     // Auto-generate invoice number using prefix + counter
     const user = await User.findByIdAndUpdate(
@@ -70,10 +67,22 @@ router.post('/', protect, async (req, res) => {
       total,
       dueDate,
       notes:       notes || '',
-      status:      'Draft',
+      status:      status || 'Draft', // ← use the status from request
     });
 
     await invoice.save();
+
+    // Send email if status is 'Sent' and client has email
+    if (status === 'Sent' && clientEmail) {
+      try {
+        const sender = await User.findById(req.user.id).select('name company');
+        await sendInvoiceEmail(invoice, sender.name, sender.company);
+        console.log(`Email sent to ${clientEmail}`);
+      } catch (emailErr) {
+        console.error('Email sending failed:', emailErr.message);
+      }
+    }
+
     res.status(201).json(invoice);
 
   } catch (error) {
@@ -82,7 +91,6 @@ router.post('/', protect, async (req, res) => {
 });
 
 // ─── UPDATE INVOICE ──────────────────────────────────────
-// PUT /api/invoices/:id
 router.put('/:id', protect, async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id);
@@ -104,8 +112,19 @@ router.put('/:id', protect, async (req, res) => {
     const updatedInvoice = await Invoice.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true } // return the updated version, not the old one
+      { new: true }
     );
+
+    // Send email if status changed to Sent and client has email
+    if (req.body.status === 'Sent' && updatedInvoice.clientEmail) {
+      try {
+        const sender = await User.findById(req.user.id).select('name company');
+        await sendInvoiceEmail(updatedInvoice, sender.name, sender.company);
+        console.log(`Email sent to ${updatedInvoice.clientEmail}`);
+      } catch (emailErr) {
+        console.error('Email sending failed:', emailErr.message);
+      }
+    }
 
     res.json(updatedInvoice);
 
@@ -115,7 +134,6 @@ router.put('/:id', protect, async (req, res) => {
 });
 
 // ─── DELETE INVOICE ──────────────────────────────────────
-// DELETE /api/invoices/:id
 router.delete('/:id', protect, async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id);
