@@ -1,4 +1,4 @@
-gimport { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/authContext';
 
 import Login from './pages/Login';
