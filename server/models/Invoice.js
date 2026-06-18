@@ -69,7 +69,13 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  scheduleId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'Schedule',
+  default: null,
+},
 
-}, { timestamps: true }); // automatically adds createdAt and updatedAt
+},
+{ timestamps: true }); // automatically adds createdAt and updatedAt
 
 module.exports = mongoose.model('Invoice', invoiceSchema);

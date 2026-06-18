@@ -3,9 +3,13 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
+const scheduleRoutes = require('./routes/schedules');
+
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/api/schedules', scheduleRoutes);
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
