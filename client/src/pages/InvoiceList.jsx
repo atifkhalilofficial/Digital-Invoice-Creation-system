@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
+import Navbar from "../components/Navbar";
 
 export default function InvoiceList() {
   const navigate = useNavigate();
@@ -9,8 +10,9 @@ export default function InvoiceList() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
-  // Fetch all invoices on load
   useEffect(() => {
     const fetchInvoices = async () => {
       try {
@@ -25,99 +27,96 @@ export default function InvoiceList() {
     fetchInvoices();
   }, []);
 
-  // Delete an invoice
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this invoice?"))
       return;
     try {
       await API.delete(`/invoices/${id}`);
-      const updated = invoices.filter((inv) => inv._id !== id);
-      setInvoices(updated);
+      setInvoices(invoices.filter((inv) => inv._id !== id));
     } catch (err) {
       console.error("Failed to delete invoice", err);
     }
   };
 
-  // Update invoice status
   const handleStatusChange = async (id, newStatus) => {
     try {
       await API.put(`/invoices/${id}`, { status: newStatus });
-      const updated = invoices.map((inv) =>
-        inv._id === id ? { ...inv, status: newStatus } : inv,
+      setInvoices(
+        invoices.map((inv) =>
+          inv._id === id ? { ...inv, status: newStatus } : inv,
+        ),
       );
-      setInvoices(updated);
     } catch (err) {
       console.error("Failed to update status", err);
     }
   };
 
-  // Status badge color
-  const getStatusColor = (status) => {
+  const badgeClass = (status) => {
     switch (status) {
       case "Paid":
-        return { backgroundColor: "#dcfce7", color: "#16a34a" };
+        return "badge-paid";
       case "Sent":
-        return { backgroundColor: "#dbeafe", color: "#2563eb" };
+        return "badge-sent";
       case "Overdue":
-        return { backgroundColor: "#fef2f2", color: "#dc2626" };
+        return "badge-overdue";
       default:
-        return { backgroundColor: "#f3f4f6", color: "#6b7280" };
+        return "badge-draft";
     }
   };
 
-  // Calculate filtered results directly — no useEffect needed
   const filtered = invoices
     .filter((inv) => statusFilter === "All" || inv.status === statusFilter)
     .filter((inv) =>
       inv.clientName.toLowerCase().includes(search.toLowerCase()),
     );
 
-  return (
-    <div style={styles.page}>
-      {/* Navbar */}
-      <nav style={styles.navbar}>
-        <h1 style={styles.navLogo}>SmartBill</h1>
-        <div style={styles.navLinks}>
-          <Link to="/" style={styles.navLink}>
-            Dashboard
-          </Link>
-          <Link to="/profile" style={styles.navLink}>
-            Profile
-          </Link>
-        </div>
-      </nav>
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginated = filtered.slice(startIndex, startIndex + itemsPerPage);
 
-      <div style={styles.container}>
-        {/* Page Header */}
-        <div style={styles.pageHeader}>
-          <h2 style={styles.pageTitle}>All Invoices</h2>
+  return (
+    <div className="min-h-screen page-bg">
+      <Navbar />
+
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+            All Invoices
+          </h2>
           <button
             onClick={() => navigate("/invoices/new")}
-            style={styles.createBtn}
+            className="btn-primary"
           >
             + New Invoice
           </button>
         </div>
 
-        {/* Search and Filter Bar */}
-        <div style={styles.filterBar}>
+        {/* Search and Filter */}
+        <div className="flex flex-wrap items-center gap-3 mb-5">
           <input
-            style={styles.searchInput}
             type="text"
             placeholder="Search by client name..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-64"
           />
-          <div style={styles.statusButtons}>
+          <div className="flex gap-2 flex-wrap">
             {["All", "Draft", "Sent", "Paid", "Overdue"].map((status) => (
               <button
                 key={status}
-                onClick={() => setStatusFilter(status)}
-                style={
+                onClick={() => {
+                  setStatusFilter(status);
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
                   statusFilter === status
-                    ? styles.filterBtnActive
-                    : styles.filterBtn
-                }
+                    ? "bg-indigo-600 text-white border-indigo-600"
+                    : "bg-transparent text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700 hover:border-indigo-500"
+                }`}
               >
                 {status}
               </button>
@@ -125,291 +124,156 @@ export default function InvoiceList() {
           </div>
         </div>
 
-        {/* Invoices Table */}
-        <div style={styles.tableCard}>
+        {/* Table */}
+        <div className="card overflow-hidden">
           {loading ? (
-            <p style={styles.emptyMsg}>Loading invoices...</p>
+            <p className="text-slate-500 text-sm p-6">Loading invoices...</p>
           ) : filtered.length === 0 ? (
-            <div style={styles.emptyState}>
-              <p style={styles.emptyMsg}>No invoices found.</p>
+            <div className="text-center py-12">
+              <p className="text-slate-500 text-sm mb-4">No invoices found.</p>
               <button
                 onClick={() => navigate("/invoices/new")}
-                style={styles.createBtn}
+                className="btn-primary"
               >
                 Create your first invoice
               </button>
             </div>
           ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr style={styles.tableHeadRow}>
-                  <th style={styles.th}>Invoice #</th>
-                  <th style={styles.th}>Client</th>
-                  <th style={styles.th}>Amount</th>
-                  <th style={styles.th}>Status</th>
-                  <th style={styles.th}>Due Date</th>
-                  <th style={styles.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((inv) => (
-                  <tr key={inv._id} style={styles.tableRow}>
-                    <td style={styles.td}>
-                      <span style={styles.invoiceNo}>{inv.invoiceNo}</span>
-                    </td>
+            <>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700/60">
+                    <th className="table-head">Invoice #</th>
+                    <th className="table-head">Client</th>
+                    <th className="table-head">Amount</th>
+                    <th className="table-head">Status</th>
+                    <th className="table-head">Due Date</th>
+                    <th className="table-head">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map((inv) => (
+                    <tr key={inv._id} className="table-row">
+                      <td className="px-6 py-4 text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                        {inv.invoiceNo}
+                      </td>
 
-                    <td style={styles.td}>
-                      <p style={styles.clientName}>{inv.clientName}</p>
-                      <p style={styles.clientEmail}>{inv.clientEmail}</p>
-                    </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 m-0">
+                          {inv.clientName}
+                        </p>
+                        <p className="text-xs text-slate-400 m-0">
+                          {inv.clientEmail}
+                        </p>
+                      </td>
 
-                    <td style={styles.td}>
-                      <span style={styles.amount}>
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-800 dark:text-white">
                         $
                         {inv.total.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
-                      </span>
-                    </td>
+                      </td>
 
-                    <td style={styles.td}>
-                      {/* Clickable status — cycles through statuses */}
-                      <select
-                        value={inv.status}
-                        onChange={(e) =>
-                          handleStatusChange(inv._id, e.target.value)
-                        }
-                        style={{
-                          ...styles.badge,
-                          ...getStatusColor(inv.status),
-                        }}
-                      >
-                        {["Draft", "Sent", "Paid", "Overdue"].map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1">
+                          <select
+                            value={inv.status}
+                            onChange={(e) =>
+                              handleStatusChange(inv._id, e.target.value)
+                            }
+                            className={`text-xs font-semibold px-2.5 py-1 rounded-full border w-auto cursor-pointer ${badgeClass(inv.status)}`}
+                          >
+                            {["Draft", "Sent", "Paid", "Overdue"].map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                          </select>
+                          {inv.scheduleId && (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-950 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 w-fit">
+                              🔁 Scheduled
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-                    <td style={styles.td}>
-                      {new Date(inv.dueDate).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </td>
+                      <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
+                        {new Date(inv.dueDate).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </td>
 
-                    <td style={styles.td}>
-                      <div style={styles.actionBtns}>
-                        <button
-                          onClick={() => navigate(`/invoices/${inv._id}`)}
-                          style={styles.viewBtn}
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleDelete(inv._id)}
-                          style={styles.deleteBtn}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <td className="px-6 py-4">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => navigate(`/invoices/${inv._id}`)}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors cursor-pointer"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() =>
+                              navigate(`/invoices/${inv._id}/edit`)
+                            }
+                            className="text-xs px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(inv._id)}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-950 text-red-500 dark:text-red-400 border border-red-200 dark:border-red-900 hover:bg-red-100 dark:hover:bg-red-900 transition-colors cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-2 p-4 border-t border-slate-200 dark:border-slate-700/60">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer bg-transparent"
+                  >
+                    ← Prev
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
+                        currentPage === i + 1
+                          ? "bg-indigo-600 text-white border-indigo-600"
+                          : "bg-transparent text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(p + 1, totalPages))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer bg-transparent"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
     </div>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    backgroundColor: "#f9fafb",
-  },
-  navbar: {
-    backgroundColor: "#ffffff",
-    borderBottom: "1px solid #e5e7eb",
-    padding: "0 2rem",
-    height: "60px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  navLogo: {
-    fontSize: "20px",
-    fontWeight: "700",
-    color: "#2563eb",
-    margin: 0,
-  },
-  navLinks: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1.5rem",
-  },
-  navLink: {
-    fontSize: "14px",
-    color: "#6b7280",
-    textDecoration: "none",
-    fontWeight: "500",
-  },
-  container: {
-    maxWidth: "1100px",
-    margin: "0 auto",
-    padding: "2rem",
-  },
-  pageHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "1.5rem",
-  },
-  pageTitle: {
-    fontSize: "22px",
-    fontWeight: "600",
-    color: "#111827",
-    margin: 0,
-  },
-  createBtn: {
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: "8px",
-    padding: "10px 18px",
-    fontSize: "14px",
-    fontWeight: "500",
-    cursor: "pointer",
-  },
-  filterBar: {
-    display: "flex",
-    gap: "1rem",
-    marginBottom: "1rem",
-    flexWrap: "wrap",
-    alignItems: "center",
-  },
-  searchInput: {
-    padding: "9px 14px",
-    borderRadius: "8px",
-    border: "1px solid #d1d5db",
-    fontSize: "14px",
-    outline: "none",
-    width: "260px",
-  },
-  statusButtons: {
-    display: "flex",
-    gap: "6px",
-  },
-  filterBtn: {
-    padding: "7px 14px",
-    borderRadius: "20px",
-    border: "1px solid #e5e7eb",
-    backgroundColor: "#ffffff",
-    fontSize: "13px",
-    color: "#6b7280",
-    cursor: "pointer",
-  },
-  filterBtnActive: {
-    padding: "7px 14px",
-    borderRadius: "20px",
-    border: "1px solid #2563eb",
-    backgroundColor: "#2563eb",
-    fontSize: "13px",
-    color: "#ffffff",
-    cursor: "pointer",
-    fontWeight: "500",
-  },
-  tableCard: {
-    backgroundColor: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: "10px",
-    padding: "1.25rem",
-    overflowX: "auto",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-  },
-  tableHeadRow: {
-    borderBottom: "1px solid #e5e7eb",
-  },
-  th: {
-    textAlign: "left",
-    fontSize: "12px",
-    fontWeight: "600",
-    color: "#6b7280",
-    padding: "8px 12px",
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-  },
-  tableRow: {
-    borderBottom: "1px solid #f3f4f6",
-  },
-  td: {
-    padding: "12px",
-    fontSize: "14px",
-    color: "#374151",
-    verticalAlign: "middle",
-  },
-  invoiceNo: {
-    fontWeight: "600",
-    color: "#111827",
-  },
-  clientName: {
-    margin: 0,
-    fontWeight: "500",
-    color: "#111827",
-  },
-  clientEmail: {
-    margin: 0,
-    fontSize: "12px",
-    color: "#9ca3af",
-  },
-  amount: {
-    fontWeight: "600",
-    color: "#111827",
-  },
-  badge: {
-    padding: "4px 10px",
-    borderRadius: "20px",
-    fontSize: "12px",
-    fontWeight: "500",
-    border: "none",
-    cursor: "pointer",
-  },
-  actionBtns: {
-    display: "flex",
-    gap: "8px",
-  },
-  deleteBtn: {
-    padding: "5px 12px",
-    borderRadius: "6px",
-    border: "1px solid #fecaca",
-    backgroundColor: "#fef2f2",
-    color: "#dc2626",
-    fontSize: "12px",
-    cursor: "pointer",
-  },
-  emptyState: {
-    textAlign: "center",
-    padding: "3rem",
-  },
-  emptyMsg: {
-    color: "#6b7280",
-    fontSize: "14px",
-    marginBottom: "1rem",
-  },
-  viewBtn: {
-    padding: "5px 12px",
-    borderRadius: "6px",
-    border: "1px solid #bfdbfe",
-    backgroundColor: "#eff6ff",
-    color: "#2563eb",
-    fontSize: "12px",
-    cursor: "pointer",
-  },
-};

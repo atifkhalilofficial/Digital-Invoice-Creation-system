@@ -173,11 +173,14 @@ const styles = {
     margin: '0 0 8px',
   },
   statusBadge: {
+    display: 'inline-block',
+    // alignSelf: 'flex-end',
     fontSize: '12px',
     fontWeight: '600',
     border: '1px solid',
-    padding: '3px 10px',
-    borderRadius: '20px',
+    padding: '4px 12px',
+    borderRadius: '50px',
+    lineHeight: '1',
   },
   divider: {
     border: 'none',
