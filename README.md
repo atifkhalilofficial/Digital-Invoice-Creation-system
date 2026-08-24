@@ -98,8 +98,7 @@ All protected routes use JWT authentication.
 
 ```bash
 # Clone repository
-git clone https://github.com/your-username/Digital-Invoice-Creation-system
-
+git clone https://github.com/atifkhalilofficial/Digital-Invoice-Creation-system.git
 # Install dependencies
 cd server
 npm install
